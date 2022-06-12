@@ -1,4 +1,5 @@
 'use strict';
+const { hashPassword } = require('../helpers');
 const {
   Model
 } = require('sequelize');
@@ -11,6 +12,9 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
+      User.hasMany(models.ShoppingCart, {
+        foreignKey: 'UserId'
+      });
     }
   }
   User.init({
@@ -36,6 +40,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     gender: {
       type:DataTypes.STRING,
+      allowNull: false,
       validate:{
         notNull: {
           args: true,
@@ -82,7 +87,10 @@ module.exports = (sequelize, DataTypes) => {
           args: true,
           msg: "input KTP is only numeric"
         },
-        len: [16, 16]
+        len: {
+          args: [16, 16],
+          msg: "input KTP must be 16 digits"
+        }
       }
     },
     password: {
@@ -99,10 +107,41 @@ module.exports = (sequelize, DataTypes) => {
         },
       }
     },
-    role: DataTypes.STRING
+    role: {
+      type :DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notNull: {
+          args: true,
+          msg: "input your role"
+        },
+        notEmpty: {
+          args: true,
+          msg: "input your role"
+        },
+        isIn: {
+          args: [['admin', 'user']],
+          msg: "role is only accept between admin and user"
+        }
+      }
+    },
+    balance: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      validate: {
+        isInt: {
+          args: true,
+          msg: "balance is only numeric"
+        }
+      }
+    }
   }, {
     sequelize,
     modelName: 'User',
   });
+  User.beforeCreate((user, options) => {
+    user.password = hashPassword(user.password);
+    user.balance = 0;
+  })
   return User;
 };
