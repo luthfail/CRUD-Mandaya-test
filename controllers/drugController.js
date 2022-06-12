@@ -88,7 +88,7 @@ class DrugController {
                         UserId: user.id
                     }
                 });
-                if(!shoppingCart) {
+                if(shoppingCart.length === 0) {
                     throw ({name: "NOT_FOUND", message: 'Shopping cart not found'});
                 }
                 const totalPrice = shoppingCart.reduce((acc, curr) => acc + curr.Drug.price, 0);
@@ -177,7 +177,7 @@ class DrugController {
                 }
             }, { transaction: t });
             res.status(200).json({
-                message: 'payment success'
+                message: 'you have success pay with amount of ' + totalPrice
             })
             await t.commit()
         } catch (err) {

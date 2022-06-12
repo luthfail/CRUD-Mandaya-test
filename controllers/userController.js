@@ -6,32 +6,38 @@ class UserController {
         try {
             const regex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,}$/
             let { phoneNumber, password, dateOfBirth, KTP, gender, role } = req.body;
-            
             if(phoneNumber[0] != 6 && phoneNumber[1] != 2 ) {
-                throw({name: 'INVALID', message: 'invalid phone number'})
-            } else if(!regex.test(password)) {
-                throw ({name: 'INVALID', message: 'minimum password length is 6 character and should contain atleast one Uppercase, one number and one special character'});
-            } else {
-                if(gender == 'female') {
-                    const rearrange = Number(KTP.slice(6,8)) + 40
-                    KTP = KTP.replace(KTP.slice(6,8), String(rearrange))
-                }
-                const newUser = await User.create({
-                    phoneNumber,
-                    password,
-                    gender,
-                    role,
-                    KTP,
-                    dateOfBirth
-                });
-                res.status(201).json({
-                    message: 'User created successfully',
-                    phoneNumber: newUser.phoneNumber,
-                    role: newUser.role,
-                    KTP: newUser.KTP,
-                });
+                throw ({name: 'INVALID', message: 'invalid phone number'})
             }
+            if(!regex.test(password)) {
+                throw ({name: 'INVALID', message: 'minimum password length is 6 character and should contain atleast one Uppercase, one number and one special character'});
+            }
+            let newKTP
+            if(gender == 'female') {
+                const rearrange = Number(KTP.slice(6,7)) + 4
+                newKTP = [...KTP]
+                newKTP[6] = String(rearrange)
+                newKTP = newKTP.join('')
+            } else if(gender == 'male') {
+                newKTP = [...KTP]
+                newKTP = newKTP.join('')
+            }
+            const newUser = await User.create({
+                phoneNumber,
+                password,
+                gender,
+                role,
+                KTP : newKTP,
+                dateOfBirth
+            });
+            res.status(201).json({
+                message: 'User created successfully',
+                phoneNumber: newUser.phoneNumber,
+                role: newUser.role,
+                KTP: newUser.KTP,
+            });
         } catch (err) {
+            console.log(err)
             next(err);
         }
     }
