@@ -4,7 +4,7 @@ const { comparePassword, generateToken } = require('../helpers');
 class UserController {
     static async register(req, res, next) {
         try {
-            const regex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,}$/
+            const regex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,}$/
             let { phoneNumber, password, dateOfBirth, KTP, gender, role } = req.body;
             
             if(phoneNumber[0] != 6 && phoneNumber[1] != 2 ) {
@@ -16,7 +16,7 @@ class UserController {
                     const rearrange = Number(KTP.slice(6,8)) + 40
                     KTP = KTP.replace(KTP.slice(6,8), String(rearrange))
                 }
-                await User.create({
+                const newUser = await User.create({
                     phoneNumber,
                     password,
                     gender,
@@ -25,7 +25,10 @@ class UserController {
                     dateOfBirth
                 });
                 res.status(201).json({
-                    message: 'User created successfully'
+                    message: 'User created successfully',
+                    phoneNumber: newUser.phoneNumber,
+                    role: newUser.role,
+                    KTP: newUser.KTP,
                 });
             }
         } catch (err) {
@@ -66,17 +69,29 @@ class UserController {
 
     static async topUp(req, res, next) {
         try {
-            const { id } = req.user.id;
+            const { id } = req.user;
             const { balance } = req.body;
-            const user = await User.findByPk(id);
-            if(!user) {
-                throw ({name: 'NOT_FOUND'});
+            const findUser = await User.findByPk(+id);
+            if(!findUser) {
+                throw ({name: 'NOT_FOUND', message: 'User not found'});
             }
-            user.balance += balance;
+            if(balance < 0) {
+                throw ({name: 'INVALID', message: 'Balance cannot be negative'});
+            }
+            const newBalance = +findUser.balance + +balance;
+            console.log(newBalance)
+            await User.update({
+                balance: newBalance
+            }, {
+                where: {
+                    id
+                }
+            });
             res.status(200).json({
                 message: 'Top up success'
             });
         } catch (err) {
+            console.log(err)
             next(err);
         }
     }

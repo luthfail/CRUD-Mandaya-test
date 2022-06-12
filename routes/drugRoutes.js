@@ -8,8 +8,7 @@ router.post('/', auth, Controller.createDrug)
 router.get('/shopping-cart', auth, Controller.getShoppingCart)
 router.post('/payment', auth, Controller.payment)
 router.get('/:id', Controller.getDrug)
-router.post('/:id/buy', auth, Controller.buyDrug)
-
+router.post('/:id', auth, Controller.buyDrug)
 router.patch('/:id', auth, Controller.restockDrug)
 router.delete('/:id', auth, Controller.deleteDrug)
 

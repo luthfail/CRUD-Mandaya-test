@@ -11,15 +11,63 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      Drug.hasMany(models.ShoppingCart, {
-        foreignKey: 'DrugId'
+      Drug.belongsToMany(models.User, {
+        foreignKey: 'DrugId',
+        through: 'ShoppingCart'
       });
     }
   }
   Drug.init({
-    name: DataTypes.STRING,
-    price: DataTypes.INTEGER,
-    stock: DataTypes.INTEGER
+    name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notNull: {
+        args: true,
+        msg: 'DrugId is required'
+      },
+      notEmpty: {
+        args: true,
+        msg: 'DrugId is required'
+      }
+    }
+  },
+    price: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        notNull: {
+          args: true,
+          msg: 'DrugId is required'
+        },
+        notEmpty: {
+          args: true,
+          msg: 'DrugId is required'
+        },
+        isNumeric: {
+          args: true,
+          msg: 'DrugId is required'
+        }
+      }
+    },
+    stock: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        notNull: {
+          args: true,
+          msg: 'DrugId is required'
+        },
+        notEmpty: {
+          args: true,
+          msg: 'DrugId is required'
+        },
+        isNumeric: {
+          args: true,
+          msg: 'DrugId is required'
+        }
+      }
+    }
   }, {
     sequelize,
     modelName: 'Drug',

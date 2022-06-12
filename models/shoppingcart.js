@@ -20,10 +20,47 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   ShoppingCart.init({
-    DrugId: DataTypes.INTEGER,
-    UserId: DataTypes.INTEGER,
+    id: {
+      allowNull: false,
+      autoIncrement: true,
+      primaryKey: true,
+      type: DataTypes.INTEGER
+    },
+    DrugId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        notNull: {
+          args: true,
+          msg: 'DrugId is required'
+        },
+        notEmpty: {
+          args: true,
+          msg: 'DrugId is required'
+        }
+      }
+    },
+    UserId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        notNull: {
+          args: true,
+          msg: 'DrugId is required'
+        },
+        notEmpty: {
+          args: true,
+          msg: 'DrugId is required'
+        }
+      }
+    },
     isPaid: DataTypes.BOOLEAN,
   }, {
+    hooks: {
+      beforeCreate(shoppingCart, options) {
+        shoppingCart.isPaid = false;
+      }
+    },
     sequelize,
     modelName: 'ShoppingCart',
   });

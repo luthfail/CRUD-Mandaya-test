@@ -31,15 +31,19 @@ class DrugController {
     static async createDrug(req, res, next) {
         try {
             const { name, price, stock } = req.body;
-            const drug = await Drug.create({
-                name,
-                price,
-                stock
-            });
-            res.status(201).json({
-                message: 'medicine added',
-                drug
-            })
+            if(req.user.role !== 'admin') {
+                throw ({name: 'FORBIDDEN', message: 'You are not authorized to create a drug'});
+            } else {
+                const drug = await Drug.create({
+                    name,
+                    price,
+                    stock
+                });
+                res.status(201).json({
+                    message: 'new medicine added',
+                    drug
+                })
+            }
         } catch (err) {
             next(err)
         }
@@ -57,64 +61,13 @@ class DrugController {
                 throw ({name: "NOT_FOUND", message: 'User not found'});
             }
             await ShoppingCart.create({
-                userId: user.id,
-                drugId: drug.id,
+                UserId: user.id,
+                DrugId: drug.id,
             });
             res.status(201).json({
                 message: 'medicine added to shopping cart, waiting to be paid'
             })
         } catch (err) {
-            next(err)
-        }
-    }
-
-    static async payment(req, res, next) {
-        const t = await sequelize.transaction();
-        try {
-            const user = await User.findByPk(req.user.id, { transaction: t });
-            if(!user) {
-                throw ({name: "NOT_FOUND", message: 'User not found'});
-            }
-            const shoppingCart = await ShoppingCart.findAll({
-                where: {
-                    userId: user.id
-                }
-            }, { transaction: t });
-            if(!shoppingCart) {
-                throw ({name: "NOT_FOUND", message: 'Shopping cart is empty'});
-            }
-            const drugs = await Drug.findAll({
-                where: {
-                    id: shoppingCart.map(item => item.drugId)
-                }
-            }, { transaction: t });
-            if(!drugs) {
-                throw ({name: "NOT_FOUND", message: 'medicine not found'});
-            }
-            const totalPrice = drugs.reduce((acc, curr) => acc + curr.price, 0);
-            if(user.balance < totalPrice) {
-                throw ({name: 'INVALID', message: 'Insufficient balance'});
-            }
-            await Drug.update({
-                stock: drugs.map(item => item.stock - 1)
-            }, {
-                where: {
-                    id: drugs.map(item => item.id)
-                }
-            }, { transaction: t });
-            await ShoppingCart.update({
-                isPaid: true
-            }, {
-                where: {
-                    userId: user.id
-                }
-            }, { transaction: t });
-            res.status(200).json({
-                message: 'Payment success'
-            })
-            await t.commit();
-        } catch (err) {
-            await t.rollback();
             next(err)
         }
     }
@@ -125,48 +78,110 @@ class DrugController {
             if(!user) {
                 throw ({name: "NOT_FOUND", message: 'User not found'});
             }
-            if(user.role === 'admin') {
+            if(user.role === 'user') {
                 const shoppingCart = await ShoppingCart.findAll({
                     include: [{
-                        model: Drug
+                        model: Drug,
+                        attributes: ['name', 'price']
+                    }],
+                    where: {
+                        UserId: user.id
+                    }
+                });
+                if(!shoppingCart) {
+                    throw ({name: "NOT_FOUND", message: 'Shopping cart not found'});
+                }
+                const totalPrice = shoppingCart.reduce((acc, curr) => acc + curr.Drug.price, 0);
+                res.status(200).json({
+                    shoppingCart,
+                    totalPrice
+                })
+            } else if(user.role === 'admin') {
+                const pendingPayment = await ShoppingCart.findAll({
+                    include: [{
+                        model: Drug,
+                        attributes: ['name', 'price']
+                    }],
+                    where: {
+                        isPaid: false
+                    }
+                });
+                const pendingIncome = pendingPayment.reduce((acc, curr) => acc + curr.Drug.price, 0);
+                const paid = await ShoppingCart.findAll({
+                    include: [{
+                        model: Drug,
+                        attributes: ['name', 'price']
                     }],
                     where: {
                         isPaid: true
                     }
                 });
-                const totalIncome = shoppingCart.reduce((acc, curr) => acc + curr.drug.price, 0);
-                const unpaid = await ShoppingCart.findAll({
-                    include: [{
-                        model: Drug
-                    }],
-                    where: {
-                        isPaid: false
-                    }
-                });
-                const expectedIncome = unpaid.reduce((acc, curr) => acc + curr.drug.price, 0);
+                const successIncome = paid.reduce((acc, curr) => acc + curr.Drug.price, 0);
                 res.status(200).json({
-                    shoppingCart,
-                    totalIncome,
-                    unpaid,
-                    expectedIncome,
-                })
-            } else if(user.role === 'user') {
-                const shoppingCart = await ShoppingCart.findAll({
-                    include: [{
-                        model: Drug
-                    }],
-                    where: {
-                        userId: user.id,
-                        isPaid: false
-                    }
-                });
-                const totalPrice = shoppingCart.reduce((acc, curr) => acc + curr.drug.price, 0);
-                res.status(200).json({
-                    shoppingCart,
-                    totalPrice
+                    pendingPayment,
+                    pendingIncome,
+                    paid,
+                    successIncome
                 })
             }
         } catch (err) {
+            next(err)
+        }
+    }
+
+    static async payment(req, res, next) {
+        const t = await sequelize.transaction();
+        try {
+            const user = await User.findByPk(+req.user.id);
+            if(!user) {
+                throw ({name: "NOT_FOUND", message: 'User not found'});
+            }
+            const shoppingCart = await ShoppingCart.findAll({
+                include: [{
+                    model: Drug,
+                    attributes: ['id', 'name', 'price', 'stock']
+                }],
+                where: {
+                    UserId: +user.id,
+                    isPaid: false
+                }
+            }, { transaction: t });
+            if(!shoppingCart) {
+                throw ({name: "NOT_FOUND", message: 'Shopping cart not found'});
+            }
+            const totalPrice = shoppingCart.reduce((acc, curr) => acc + curr.Drug.price, 0);
+            if(+user.balance < +totalPrice) {
+                throw ({name: "FORBIDDEN", message: 'Balance not enough'});
+            }
+            await User.update({
+                balance: +user.balance - +totalPrice
+            }, {
+                where: {
+                    id: +user.id
+                }
+            }, { transaction: t });
+            await shoppingCart.forEach(el => {
+                Drug.update({
+                    stock: +el.Drug.stock - 1
+                }, {
+                    where: {
+                        id: el.Drug.id
+                    }
+                }, { transaction: t });
+            })
+            await ShoppingCart.update({
+                isPaid: true
+            }, {
+                where: {
+                    UserId: +user.id,
+                }
+            }, { transaction: t });
+            res.status(200).json({
+                message: 'payment success'
+            })
+            await t.commit()
+        } catch (err) {
+            await t.rollback()
             next(err)
         }
     }
@@ -187,7 +202,7 @@ class DrugController {
                 throw ({name: "FORBIDDEN", message: 'Forbidden'});
             }
             await Drug.update({
-                stock: drug.stock + stock
+                stock: +drug.stock + +stock
             }, {
                 where: {
                     id: drug.id
